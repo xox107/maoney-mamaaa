@@ -1,0 +1,110 @@
+/**
+ * @fileoverview Firestore Security Rules for MONEY MAMAA application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. Each user can only
+ * access their own data, which is stored under their unique user ID.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user account information. The {userId} corresponds to the Firebase Auth UID.
+ * - /users/{userId}/incomes/{incomeId}: Stores income entries for a specific user.
+ * - /users/{userId}/expenses/{expenseId}: Stores expense entries for a specific user.
+ *
+ * Key Security Decisions:
+ * - User listing is disabled.
+ * - Only authenticated users can access data.
+ * - Data is segregated by user ID to ensure privacy.
+ * - All writes are validated against user ownership.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Secure user account documents.
+     * @path /users/{userAccountId}
+     * @allow (create) User with UID 'user123' can create a user document if request.auth.uid == 'user123'.
+     * @deny (create) User with UID 'user456' cannot create a user document with ID 'user123'.
+     * @allow (get) User with UID 'user123' can read their user document.
+     * @deny (get) User with UID 'user456' cannot read user document with ID 'user123'.
+     * @allow (update) User with UID 'user123' can update their user document.
+     * @deny (update) User with UID 'user456' cannot update user document with ID 'user123'.
+     * @allow (delete) User with UID 'user123' can delete their user document.
+     * @deny (delete) User with UID 'user456' cannot delete user document with ID 'user123'.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userAccountId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isOwner(userAccountId) && request.resource.data.id == userAccountId;
+      allow get: if isOwner(userAccountId);
+      allow list: if false; // User listing is not allowed
+      allow update: if isExistingOwner(userAccountId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userAccountId);
+    }
+
+    /**
+     * @description Secure income entries under a user account.
+     * @path /users/{userAccountId}/incomes/{incomeId}
+     * @allow (create) User with UID 'user123' can create an income entry under their account.
+     * @deny (create) User with UID 'user456' cannot create an income entry under account 'user123'.
+     * @allow (get) User with UID 'user123' can read an income entry under their account.
+     * @deny (get) User with UID 'user456' cannot read an income entry under account 'user123'.
+     * @allow (update) User with UID 'user123' can update an income entry under their account.
+     * @deny (update) User with UID 'user456' cannot update an income entry under account 'user123'.
+     * @allow (delete) User with UID 'user123' can delete an income entry under their account.
+     * @deny (delete) User with UID 'user456' cannot delete an income entry under account 'user123'.
+     * @principle Enforces document ownership and validates relational integrity.
+     */
+    match /users/{userAccountId}/incomes/{incomeId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isOwner(userAccountId) && request.resource.data.userAccountId == userAccountId;
+      allow get: if isOwner(userAccountId);
+      allow list: if isOwner(userAccountId);
+      allow update: if isExistingOwner(userAccountId) && request.resource.data.userAccountId == resource.data.userAccountId;
+      allow delete: if isExistingOwner(userAccountId);
+    }
+
+    /**
+     * @description Secure expense entries under a user account.
+     * @path /users/{userAccountId}/expenses/{expenseId}
+     * @allow (create) User with UID 'user123' can create an expense entry under their account.
+     * @deny (create) User with UID 'user456' cannot create an expense entry under account 'user123'.
+     * @allow (get) User with UID 'user123' can read an expense entry under their account.
+     * @deny (get) User with UID 'user456' cannot read an expense entry under account 'user123'.
+     * @allow (update) User with UID 'user123' can update an expense entry under their account.
+     * @deny (update) User with UID 'user456' cannot update an expense entry under account 'user123'.
+     * @allow (delete) User with UID 'user123' can delete an expense entry under their account.
+     * @deny (delete) User with UID 'user456' cannot delete an expense entry under account 'user123'.
+     * @principle Enforces document ownership and validates relational integrity.
+     */
+    match /users/{userAccountId}/expenses/{expenseId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow create: if isOwner(userAccountId) && request.resource.data.userAccountId == userAccountId;
+      allow get: if isOwner(userAccountId);
+      allow list: if isOwner(userAccountId);
+      allow update: if isExistingOwner(userAccountId) && request.resource.data.userAccountId == resource.data.userAccountId;
+      allow delete: if isExistingOwner(userAccountId);
+    }
+  }
+}
